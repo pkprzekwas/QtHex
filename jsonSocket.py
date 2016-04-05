@@ -88,14 +88,15 @@ class JsonSocket(object):
     def _set_port(self, port):
         pass
 
-    timeout = property(_get_timeout, _set_timeout,doc='Get/set the socket timeout')
-    address = property(_get_address, _set_address,doc='read only property socket address')
-    port = property(_get_port, _set_port,doc='read only property socket port')
+    timeout = property(_get_timeout, _set_timeout, doc='Get/set the socket timeout')
+    address = property(_get_address, _set_address, doc='read only property socket address')
+    port = property(_get_port, _set_port, doc='read only property socket port')
 
 
 class JsonServer(JsonSocket):
     def __init__(self, address='127.0.0.1', port=5007):
         super(JsonServer, self).__init__(address, port)
+        self.port = port
         self._bind()
 
     def _bind(self):
@@ -133,9 +134,9 @@ class JsonClient(JsonSocket):
 
 
 class ThreadedServer(threading.Thread, JsonServer):
-    def __init__(self, **kwargs):
+    def __init__(self, address='127.0.0.1', port=5007, **kwargs):
         threading.Thread.__init__(self)
-        JsonServer.__init__(self)
+        JsonServer.__init__(self, address, port)
         self._isAlive = False
 
     def _processMessage(self, obj):

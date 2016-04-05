@@ -6,7 +6,7 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>970</width>
+    <width>1200</width>
     <height>759</height>
    </rect>
   </property>
@@ -15,13 +15,6 @@
   </property>
   <widget class="QWidget" name="centralwidget">
    <layout class="QHBoxLayout" name="horizontalLayout">
-    <item>
-     <widget class="QPushButton" name="exit_btn">
-      <property name="text">
-       <string>Zamknij</string>
-      </property>
-     </widget>
-    </item>
     <item>
      <layout class="QGridLayout" name="gridLayout">
       <property name="leftMargin">
@@ -51,28 +44,48 @@
         </item>
        </layout>
       </item>
-      <item row="2" column="0">
-       <widget class="QLineEdit" name="ip_addr_field"/>
-      </item>
       <item row="0" column="1">
        <widget class="QGraphicsView" name="enemys_screen"/>
       </item>
-      <item row="2" column="1">
+      <item row="0" column="0">
+       <widget class="QGraphicsView" name="my_screen"/>
+      </item>
+      <item row="7" column="1">
+       <widget class="QLineEdit" name="ip_addr_field"/>
+      </item>
+      <item row="3" column="0">
+       <widget class="QLineEdit" name="set_X"/>
+      </item>
+      <item row="4" column="0">
+       <widget class="QLineEdit" name="set_Y"/>
+      </item>
+      <item row="3" column="1">
        <widget class="QPushButton" name="shot_btn">
         <property name="text">
          <string>Strzał</string>
         </property>
        </widget>
       </item>
-      <item row="4" column="0">
+      <item row="7" column="0">
+       <widget class="QPushButton" name="exit_btn">
+        <property name="text">
+         <string>Zamknij</string>
+        </property>
+       </widget>
+      </item>
+      <item row="5" column="0">
+       <widget class="QPushButton" name="set_ship_btn">
+        <property name="text">
+         <string>Ustaw statek</string>
+        </property>
+       </widget>
+      </item>
+      <item row="5" column="1">
        <widget class="QPushButton" name="connect_btn">
         <property name="text">
          <string>Połącz z:</string>
         </property>
        </widget>
-      </item>
-      <item row="0" column="0">
-       <widget class="QGraphicsView" name="my_screen"/>
       </item>
      </layout>
     </item>
@@ -83,7 +96,7 @@
     <rect>
      <x>0</x>
      <y>0</y>
-     <width>970</width>
+     <width>1200</width>
      <height>27</height>
     </rect>
    </property>

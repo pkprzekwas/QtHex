@@ -2,7 +2,8 @@ import jsonSocket
 
 
 class Server(jsonSocket.ThreadedServer):
-    def __init__(self):
+    def __init__(self, address='127.0.0.1', port=5007):
+        jsonSocket.ThreadedServer.__init__(self, address, port)
         super(Server, self).__init__()
         self.timeout = 2.0
 

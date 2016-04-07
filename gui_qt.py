@@ -19,8 +19,8 @@ class MyWin(QMainWindow):
         QMainWindow.__init__(self)
         uic.loadUi('untitled.ui', self)
 
-        self.my_board = np.zeros((5, 5))
-        self.enemies_board = np.zeros((5, 5))
+        self.my_board = np.zeros((9, 9))
+        self.enemies_board = np.zeros((9, 9))
 
         self.my_points = 0
         self.enemies_points = 0
@@ -134,23 +134,15 @@ class MyWin(QMainWindow):
 
                     QMessageBox.about(self, "Statek na polu", "({}, {})".format(x, y))
                     if x % 2 != 0:
-                        # x -= 1;
-                        if x == 1:
-                            x -= 1
-                        if x == 3:
-                            x -= 2
                         self.item = QGraphicsPixmapItem(QPixmap('res/boat.gif'))
-                        self.item.setOffset(10+y*110, 80+x*140)
+                        self.item.setOffset(3+y*61, 11+(x*52))
                         self.scene.addItem(self.item)
                     elif x % 2 == 0:
-                        if x == 2:
-                            x -= 1
-                        if x == 4:
-                            x -= 2
                         self.item = QGraphicsPixmapItem(QPixmap('res/boat.gif'))
-                        self.item.setOffset(65+y*110, 20+x*140)
+                        self.item.setOffset(30+y*61, 0+x*53)
                         self.scene.addItem(self.item)
                     # self.client.sendObj({"x": x, "y": y})
+
                 else:
                     QMessageBox.about(self, "Blad", "Niepoprawne pola")
             else:

@@ -22,7 +22,8 @@ class JsonSocket(object):
     def sendObj(self, obj):
         msg = json.dumps(obj)
         if self.socket:
-            frmt = "=%ds" % len(msg)
+            frmt = '=%ds' % len(msg)
+            msg = bytes(msg, 'utf-8')
             packedMsg = struct.pack(frmt, msg)
             packedHdr = struct.pack('=I', len(packedMsg))
 
@@ -38,6 +39,7 @@ class JsonSocket(object):
         data = ''
         while len(data) < size:
             dataTmp = self.conn.recv(size-len(data))
+            dataTmp = dataTmp.decode()
             data += dataTmp
             if dataTmp == '':
                 raise RuntimeError("socket connection broken")
@@ -45,6 +47,7 @@ class JsonSocket(object):
 
     def _msgLength(self):
         d = self._read(4)
+        d = bytes(d, 'utf-8')
         s = struct.unpack('=I', d)
         return s[0]
 
@@ -52,7 +55,10 @@ class JsonSocket(object):
         size = self._msgLength()
         data = self._read(size)
         frmt = "=%ds" % size
-        msg = struct.unpack(frmt,data)
+        data = bytes(data, 'utf-8')
+        msg = struct.unpack(frmt, data)
+        msg = list(msg)
+        msg[0] = msg[0].decode()
         return json.loads(msg[0])
 
     def close(self):
@@ -86,6 +92,7 @@ class JsonSocket(object):
         return self._port
 
     def _set_port(self, port):
+        self._port = port
         pass
 
     timeout = property(_get_timeout, _set_timeout, doc='Get/set the socket timeout')
@@ -96,12 +103,15 @@ class JsonSocket(object):
 class JsonServer(JsonSocket):
     def __init__(self, address='127.0.0.1', port=5007):
         super(JsonServer, self).__init__(address, port)
-        self.port = port
+        self._port = port
         self._bind()
 
     def _bind(self):
-        self.socket.bind( (self.address,self.port) )
-
+        try:
+            self.socket.bind( (self.address,self.port) )
+        except:
+            self._set_port(10000)
+            self.socket.bind( (self.address,self.port) )
     def _listen(self):
         self.socket.listen(1)
 

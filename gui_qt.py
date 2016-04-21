@@ -5,14 +5,18 @@ from tkinter import *
 import numpy as np
 import pickle
 from random import randint
+import xml.dom.minidom as minidom
+import xml.etree.ElementTree as ET
 from PyQt4.QtCore import Qt, QEvent
 from PyQt4 import uic
 from PyQt4.QtGui import (QMainWindow, QApplication, QMessageBox, QCursor,
                          QGraphicsScene, QGraphicsPixmapItem, QPixmap,
                          QAction, QIcon, QFileDialog)
-
 from commons import parser
+from ai import AI
 from draw_map import DrawMap
+from window_config import WindowConfig
+from game_server import Server
 import jsonSocket
 
 
@@ -25,32 +29,36 @@ class MyWin(QMainWindow):
         uic.loadUi('untitled.ui', self)
 
         self.step_nr = 0
+        self.is_my_turn = True
+        self.ai_mode = False
 
         #  List with game states
         self.state = []
 
         self.ready_to_play = False
         self.send = (-1, -1)
+
         # 1 - Ship
         # 2 - Hit
         # 3 - Missed 
         self.my_board = np.zeros((10, 9))
         self.enemies_board = np.zeros((10, 9))
         self.build_ships_from_matrix()
-
+        self.tie = 0
         self.my_points = 0
         self.enemies_points = 0
 
+        self.xml_init()
         self.state.append((self.my_board, self.enemies_board, self.my_points))
 
         self.my_ships = 0
 
-        self.s = Server(address, port)
+        self.s = Server(self, address, port)
         self.s.start()
 
         self.is_client_connected = False
 
-        self.view_config()
+        WindowConfig.config(self)
         self.scene = QGraphicsScene()
         self.my_screen.setScene(self.scene)
 
@@ -59,6 +67,9 @@ class MyWin(QMainWindow):
         # self.my_screen.viewport().installEventFilter(self)
 
         # buttons
+
+        self.ai_btn.clicked.connect(self.play_with_ai)
+        self.move_btn.clicked.connect(self.move_ship)
         self.next_btn.clicked.connect(self.next_step)
         self.back_btn.clicked.connect(self.step_back)
         self.save_btn.clicked.connect(self.save_dialog)
@@ -69,6 +80,36 @@ class MyWin(QMainWindow):
         self.set_ship_btn.clicked.connect(self.set_ship)
         self.connect_btn.clicked.connect(self.connect_with_enemy)
         self.exit_btn.clicked.connect(self.close_app)
+        pass
+
+    def xml_init(self):
+        self.root = ET.Element("game")
+
+        doc = ET.SubElement(self.root, "initialization")
+        ET.SubElement(doc, "my_board", name="my board").text = str(self.my_board)
+        ET.SubElement(doc, "enemies_board", name="enemies board").text = str(self.my_board)
+
+    def play_with_ai(self):
+        self.ai_mode = True
+        self.ai = AI(self)
+        pass
+
+    def move_ship(self):
+        x = self.x_field.text()
+        y = self.y_field.text()
+        x, y = parser(x, y)
+
+        if (x != -1 and y != -1) and \
+                (self.my_board[x][y] == 1):
+            new_x = randint(0, 9)
+            new_y = randint(0, 8)
+            if self.my_board[new_x][new_y] not in range(1,4):
+                self.my_board[x][y] = 0
+                self.my_board[new_x][new_y] = 1
+                self.clear_board()
+                self.build_shots_from_matrix()
+        else:
+            QMessageBox.about(self, "Move", "Wybierz statek")
         pass
 
     def next_step(self):
@@ -97,13 +138,25 @@ class MyWin(QMainWindow):
 
         pickle.dump( self.state, open( fname, "wb" ) )
 
+        self.tree = ET.ElementTree(self.root)
+
+        xmlstr = minidom.parseString(ET.tostring(self.root)).toprettyxml(indent="   ")
+        with open("newState.xml", "w") as f:
+            f.write(xmlstr)
+
+        # self.tree.write("states.xml")
+
     def load_state(self):
+        '''
+        Reads game state from binary file.
+        '''
 
-        fname = QFileDialog.getOpenFileName(self, 'Open file',
-                '/home')
-        self.state = pickle.load( open( fname, "rb" ) )
+        fname = QFileDialog.getOpenFileName(self, 'Open file', '/home')
+        self.state = pickle.load(open(fname, "rb"))
 
-        print(self.state)
+        # TODO
+        tree = ET.parse('New_Database.xml')
+        root = tree.getroot()
 
     def eventFilter(self, source, event):
         if (event.type() == QEvent.MouseButtonPress and
@@ -111,27 +164,10 @@ class MyWin(QMainWindow):
                     QCursor.pos()
                     QMessageBox.about(self, "Debug", "debug {}".format(QCursor.pos()))
 
-    def view_config(self):
-        self.setWindowTitle(self.tr("Statki"))
-
-        self.ip_addr_field.setPlaceholderText("Podaj adres IP przeciwnika")
-        self.ip_addr_field.setAlignment(Qt.AlignCenter)
-        self.port_field.setPlaceholderText("Podaj port przeciwnika")
-        self.port_field.setAlignment(Qt.AlignCenter)
-
-        self.set_X.setPlaceholderText("Podaj wspolzedna Y statku")
-        self.set_X.setAlignment(Qt.AlignCenter)
-
-        self.set_Y.setPlaceholderText("Podaj wspolzedna X statku")
-        self.set_Y.setAlignment(Qt.AlignCenter)
-
-        self.x_field.setPlaceholderText("Podaj wspolzedna Y statku")
-        self.x_field.setAlignment(Qt.AlignCenter)
-
-        self.y_field.setPlaceholderText("Podaj wspolzedna X statku")
-        self.y_field.setAlignment(Qt.AlignCenter)
-
     def connect_with_enemy(self):
+        '''
+        Connects our game instance with our enemy
+        '''
         ip_addr = self.ip_addr_field.text()
         port = self.port_field.text()
         port = int(port)
@@ -150,9 +186,58 @@ class MyWin(QMainWindow):
             QMessageBox.about(self, "Blad", "Bledny format adresu ip")
 
     def execute_shot(self):
+        '''
+        Shot execution.
+        '''
         is_hit = False
 
-        if not self.is_client_connected:
+        if not self.ai_mode:
+
+            if not self.is_my_turn:
+                QMessageBox.about(self, "Czekaj", "Czekaj na twoją turę!")
+                return
+
+            if not self.is_client_connected:
+                x = self.x_field.text()
+                y = self.y_field.text()
+                x, y = parser(x, y)
+
+                if x != -1 and y != -1:
+
+                    if self.enemies_board[x][y] == 1:
+                        self.enemies_board[x][y] = 2
+                        is_hit = True
+                        picture = 'res/ok.png'
+                    else:
+                        self.enemies_board[x][y] = 3
+                        is_hit = False
+                        picture = 'res/cancel.png'
+
+                    # if x % 2 != 0:
+                    #     self.item = QGraphicsPixmapItem(QPixmap(picture))
+                    #     self.item.setOffset(16+y*61, 17+(x*52))
+                    #     self.scene.addItem(self.item)
+                    #
+                    #
+                    # elif x % 2 == 0:
+                    #     self.item = QGraphicsPixmapItem(QPixmap(picture))
+                    #     self.item.setOffset(47+y*61, 16+x*53)
+                    #     self.scene.addItem(self.item)
+
+                    # QMessageBox.about(self, "Strzal", "({}, {})".format(x, y))
+                    self.send = (x, y)
+                    self.client.sendObj({"x": x, "y": y})
+                else:
+                    QMessageBox.about(self, "Blad", "Niepoprawne pola")
+            else:
+                QMessageBox.about(self, "Info", "Nie polaczyles sie z przeciwnikiem")
+
+            if is_hit:
+                pass
+            else:
+                pass
+
+        else:
             x = self.x_field.text()
             y = self.y_field.text()
             x, y = parser(x, y)
@@ -164,35 +249,19 @@ class MyWin(QMainWindow):
                     is_hit = True
                     picture = 'res/ok.png'
                 else:
-                    self.enemies_board[x][y] = -1
+                    self.enemies_board[x][y] = 3
                     is_hit = False
                     picture = 'res/cancel.png'
 
-                # if x % 2 != 0:
-                #     self.item = QGraphicsPixmapItem(QPixmap(picture))
-                #     self.item.setOffset(16+y*61, 17+(x*52))
-                #     self.scene.addItem(self.item)
-                #
-                #
-                # elif x % 2 == 0:
-                #     self.item = QGraphicsPixmapItem(QPixmap(picture))
-                #     self.item.setOffset(47+y*61, 16+x*53)
-                #     self.scene.addItem(self.item)
-
-                # QMessageBox.about(self, "Strzal", "({}, {})".format(x, y))
-                self.send = (x, y)
-                self.client.sendObj({"x": x, "y": y})
-            else:
-                QMessageBox.about(self, "Blad", "Niepoprawne pola")
-        else:
-            QMessageBox.about(self, "Info", "Nie polaczyles sie z przeciwnikiem")
-
-        if is_hit:
-            pass
-        else:
-            pass
+                self.is_my_turn = False
+                self.ai.make_move()
 
     def get_shot(self, x, y):
+        '''
+        Shot handler.
+        :param x: x coord of shot
+        :param y: y coord of shot
+        '''
         is_Hit = False
 
         if self.my_board[x][y] == 1:
@@ -220,7 +289,7 @@ class MyWin(QMainWindow):
             y = self.set_Y.text()
             x, y = parser(x, y)
 
-            if self.my_ships < 5:
+            if self.my_ships < 10:
                 if x != -1 and y != -1:
 
                     # Dodanie statku do pola
@@ -296,7 +365,7 @@ class MyWin(QMainWindow):
         self.set_ship_btn.hide()
         self.my_board = np.zeros((10, 9))
         ships = 0
-        while ships < 5:
+        while ships < 10:
             x = randint(0, 9)
             y = randint(0, 8)
             if self.my_board[x][y] == 0:
@@ -313,44 +382,6 @@ class MyWin(QMainWindow):
             self.client.close()
         self.s.stop()
         self.close()
-
-
-class Server(jsonSocket.ThreadedServer):
-    def __init__(self, address='127.0.0.1', port=5007):
-        jsonSocket.ThreadedServer.__init__(self, address, port)
-        super(Server, self).__init__()
-        self.timeout = 2.0
-
-    def _processMessage(self, obj):
-        """ virtual method """
-        if obj != '':
-            x = obj.get("x")
-            y = obj.get("y")
-            if x == "T":
-                mw.enemies_board[mw.send[0]][mw.send[1]] = 2
-                print("Trafiony")
-                mw.my_points += 1
-                if mw.my_points == 5:
-                    print("Wygrales")
-            elif x == "P":
-                mw.enemies_board[mw.send[0]][mw.send[1]] = 3
-                print("Podlo")
-            elif x == "W":
-                print("Wygrales")
-            else:
-                if mw.my_board[x][y] == 1:
-                    mw.my_board[x][y] = 2
-                    mw.client.sendObj({"x": "T", "y": 1})
-                else:
-                    mw.my_board[x][y] = 3
-                    mw.client.sendObj({"x": "P", "y": 1})
-
-            print(mw.my_board)
-            print(mw.enemies_board)
-            my_board = np.copy(mw.my_board)
-            enemies_board = np.copy(mw.enemies_board)
-
-            mw.state.append((my_board, enemies_board, mw.my_points))
 
     @staticmethod
     def _parser(x, y):

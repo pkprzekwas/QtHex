@@ -87,11 +87,22 @@
          </layout>
         </item>
         <item>
-         <widget class="QPushButton" name="shot_btn">
-          <property name="text">
-           <string>Strzał</string>
-          </property>
-         </widget>
+         <layout class="QHBoxLayout" name="horizontalLayout_7">
+          <item>
+           <widget class="QPushButton" name="shot_btn">
+            <property name="text">
+             <string>Strzał</string>
+            </property>
+           </widget>
+          </item>
+          <item>
+           <widget class="QPushButton" name="move_btn">
+            <property name="text">
+             <string>Przesuń</string>
+            </property>
+           </widget>
+          </item>
+         </layout>
         </item>
         <item>
          <layout class="QHBoxLayout" name="horizontalLayout_2">
@@ -157,6 +168,13 @@
          <widget class="QPushButton" name="gen_rand_btn">
           <property name="text">
            <string>Random</string>
+          </property>
+         </widget>
+        </item>
+        <item>
+         <widget class="QPushButton" name="ai_btn">
+          <property name="text">
+           <string>Sztuczna Inteligencja</string>
           </property>
          </widget>
         </item>
